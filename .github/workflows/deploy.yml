@@ -1,0 +1,35 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master  # Runs when code is pushed to main branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Build Docker image
+      run: docker build -t rohitkamble14/hello-webapp .
+
+    - name: Log in to DockerHub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Push Docker image to DockerHub
+      run: docker push rohitkamble14/hello-webapp
+
+    - name: Deploy to EC2 via SSH
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          docker pull rohitkamble14/hello-webapp
+          docker stop hello || true
+          docker rm hello || true
+          docker run -d -p 80:80 --name hello rohitkamble14/hello-webapp
